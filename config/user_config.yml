@@ -21,7 +21,7 @@
 # Valid types: "ALL", "ALL_cached_Barboza", "lake", "speleothem", "ice",
 #              "borehole", "tree", "documents", "hybrid", "marine",
 #              "coral", "bivalve"
-ptype: "ALL"
+ptype: "coral"   # DEMO: single sparse archive — triggers the RP reducer crash (see README)
 
 # Method used to choose the reduced-proxy CSV (only relevant for the
 # cached Barboza path) or to compute a new RP from the LiPD-derived

@@ -1,3 +1,24 @@
+> ## ⚠️ This is a bug-demonstration repo
+>
+> This is **not** a working reconstruction. It is an instance of the
+> [`presto-BayGMST`](https://github.com/DaveEdge1/presto-BayGMST) template,
+> configured to demonstrate a crash in the upstream RP reducer
+> ([`paleopresto/BayGMST_R`](https://github.com/paleopresto/BayGMST_R) →
+> `utils/PAGES2k_reducedProxy_UNSC.R`) when a **single sparse archive type**
+> is selected. See [**`DEMO.md`**](DEMO.md) for the full write-up, root cause,
+> and the expected error.
+>
+> **What's changed from the template:** only `config/user_config.yml` →
+> `ptype: "coral"` (instead of `ALL`). Everything else is the stock template.
+>
+> **Expected outcome:** the `BayGMST Reconstruction` workflow fails in the
+> `reconstruct` job at the *"Run BayGMST pipeline"* step (the R reducer) with:
+> ```
+> [1] "Method to compute RP: PCR"
+> [1] 1
+> Error in apply(X = proxy_finite, MARGIN = 2, ...) : dim(X) must have a positive length
+> ```
+
 # PReSto BayGMST Template
 
 A [PReSto](https://paleopresto.com) (Paleoclimate Reconstruction Storehouse) template for the **Bayesian Global Mean Surface Temperature** reconstruction of Bagwell et al. (2025), packaged for automated execution via GitHub Actions.
