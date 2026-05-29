@@ -1,4 +1,4 @@
-# Demo: single sparse archive crashes the RP reducer
+# Demo: sparse single-archive selection crashes the RP reducer
 
 ## What this repo shows
 
@@ -9,14 +9,15 @@ the upstream RP reducer
 
 ```yaml
 # config/user_config.yml
-ptype: "coral"
+ptype: "documents"
 rp_method: "PCR"
 ```
 
 and is otherwise the stock [`presto-BayGMST`](https://github.com/DaveEdge1/presto-BayGMST)
-template. The `BayGMST Reconstruction` workflow downloads the archived
+template **plus the pending `make.names`-safe-ID fix** (see *"Why the fix is
+included"* below). The `BayGMST Reconstruction` workflow downloads the archived
 `Pages2kTemperature` compilation, converts it to a PAGES2k-style proxy matrix,
-and then runs the reducer — which fails.
+selects the `documents` proxies, and runs the reducer — which fails.
 
 ## Expected failure
 
@@ -41,37 +42,62 @@ proxy_finite = proxy_filled[timeSpan, segProxies]   # no drop = FALSE
 cleanNANs <- apply(X = proxy_finite, MARGIN = 2, ...)
 ```
 
-Coral records are sparse early in the millennium, so the **oldest** segment
-retains a *single* qualifying proxy. Without `drop = FALSE`, `proxy_finite`
-collapses from a matrix to a numeric vector, and `apply(..., MARGIN = 2, ...)`
-fails with `dim(X) must have a positive length`.
+`documents` proxies are sparse early in the millennium, so the **oldest**
+segment retains a *single* qualifying proxy. Without `drop = FALSE`,
+`proxy_finite` collapses from a matrix to a numeric vector, and
+`apply(..., MARGIN = 2, ...)` fails with `dim(X) must have a positive length`.
 
-A `drop = FALSE` patch is **necessary but not sufficient**: with it, segment 1
-fits a degenerate 1-PC PCR and then dies at the RP assignment
+A `drop = FALSE` patch is **necessary but not sufficient**: with it, a 1-PC PCR
+is fitted and the run then dies at the RP assignment
 `RP[timeSpan, k] <- cbind(one, pc_all) %*% coeff` (dimension mismatch). The
 8 × 250-year segmentation has cascading assumptions that break when a selection
 is too sparse.
 
-Dense selections are unaffected: `ptype: "ALL"` and multi-archive selections
-such as `ptype: ["coral", "tree"]` (202 proxies) run to completion.
+### Sparsity, not the specific archive
 
-Note: this is a *non-empty* selection (coral has 72 proxies in the screened
-set), so the PReSto-side empty-selection guard in `PAGES2k_reducedProxy_UNSC.R`
-does not fire — the crash is downstream of it, in the upstream segment loop.
+The crash is about **how sparse the selection is**, not which archive it is.
+Against `Pages2kTemperature 2_2_0`:
+
+| `ptype`      | proxies | reducer outcome                                            |
+|--------------|--------:|------------------------------------------------------------|
+| `documents`  |      16 | ❌ `dim(X) must have a positive length` (shown here)        |
+| `speleothem` |       5 | ❌ `dim(X) must have a positive length`                     |
+| `coral`      |     152 | ❌ `RP[timeSpan,k] <- cbind(one,pc_all) %*% coeff` mismatch |
+| `borehole`   |       4 | ❌ same `cbind ... %*% coeff` mismatch                      |
+| `ice`        |      78 | ✅ completes                                                |
+| `coral`+`tree` | 2513  | ✅ completes                                                |
+
+## Why the `make.names`-safe-ID fix is included
+
+The stock template has a **separate** bug that masks this one: the LiPD adapter
+emitted proxy IDs with hyphens (e.g. `Ocn-Mayotte.Zinke.2008__d18O`), which
+`read.csv(check.names = TRUE)` rewrites in the matrix *header* but not in
+`metadata$X`. Every archive-subset selection therefore matched **zero** columns
+and crashed earlier with `undefined columns selected`, never reaching the
+segment loop.
+
+This repo includes the pending fix for that
+([presto-BayGMST#3](https://github.com/DaveEdge1/presto-BayGMST/pull/3)) so the
+selection actually populates the proxy matrix and the **upstream segment-loop
+bug** above is reached. Once #3 merges, a fresh template instance with
+`ptype: documents` reproduces this directly.
 
 ## Reproduce locally (no GitHub Actions)
 
 ```bash
 docker build -t baygmst:local .
-# run only the reducer against the baked-in PAGES2k reference data:
 docker run --rm \
+  -v "$PWD/lipd_legacy.pkl:/proxies/lipd_legacy.pkl:ro" \
   -v "$PWD/config/user_config.yml:/app/config/user_config.yml:ro" \
   -v "$PWD/results:/results" \
-  --entrypoint Rscript baygmst:local /app/scripts/run_reducer.R
+  baygmst:local
+# (download lipd_legacy.pkl from
+#  https://lipdverse.org/Pages2kTemperature/2_2_0/Pages2kTemperature2_2_0.pkl)
 ```
 
-## Reproduce on the actual upstream code
+## Reproduce on the upstream code directly
 
-Set `cfg$ptype <- "coral"` in the `config.yml` that
-`paleopresto/BayGMST_R/utils/PAGES2k_reducedProxy_UNSC.R` reads, then source the
-script. It crashes at the first segment as above.
+Set `cfg$ptype <- "documents"` (or any sparse single archive) in the `config.yml`
+that `paleopresto/BayGMST_R/utils/PAGES2k_reducedProxy_UNSC.R` reads, against a
+proxy matrix whose column names match `metadata$X`, then source the script. It
+crashes at the first segment as above.

@@ -8,8 +8,13 @@
 > is selected. See [**`DEMO.md`**](DEMO.md) for the full write-up, root cause,
 > and the expected error.
 >
-> **What's changed from the template:** only `config/user_config.yml` →
-> `ptype: "coral"` (instead of `ALL`). Everything else is the stock template.
+> **What's changed from the template:**
+> - `config/user_config.yml` → `ptype: "documents"` (a sparse archive), instead of `ALL`.
+> - `scripts/lipd_to_baygmst.py` carries the pending `make.names`-safe-ID fix
+>   ([presto-BayGMST#3](https://github.com/DaveEdge1/presto-BayGMST/pull/3)), so
+>   the selection populates the matrix and the **upstream segment-loop bug** is
+>   actually reached (without it, a *separate* ID-mangling bug crashes earlier).
+>   See `DEMO.md` for why.
 >
 > **Expected outcome:** the `BayGMST Reconstruction` workflow fails in the
 > `reconstruct` job at the *"Run BayGMST pipeline"* step (the R reducer) with:
